@@ -44,11 +44,19 @@ func (c *CountPostgres) GetAll() ([]int, error) {
 }
 
 func (c *CountPostgres) GetLast(numb string) (int, error) {
-	//TODO implement me
-	panic("implement me")
+	query := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1) and r.date=(select date from records order by date desc limit 1);")
+	var count int
+	if err := c.Count.Get(&count, query, numb); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (c *CountPostgres) GetPenult(numb string) (int, error) {
-	//TODO implement me
-	panic("implement me")
+	query := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1) and r.date=(select date from records order by date desc limit 1 offset 1);")
+	var count int
+	if err := c.Count.Get(&count, query, numb); err != nil {
+		return 0, err
+	}
+	return count, nil
 }

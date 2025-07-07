@@ -75,6 +75,12 @@ func (h *Handler) mainHandler(msg core.Message, bot *tgbotapi.BotAPI, logger *sl
 			} else {
 				core.SendMessageTg(msg.CallbackChatID, core.NewCountAnswerCallback, bot)
 			}
+		case "amountofpayment":
+			if err := h.storage.Cache.Create(msg.CallbackData); err != nil {
+				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
+			} else {
+				core.SendMessageTg(msg.CallbackChatID, core.NewGetAmountOfPayment, bot)
+			}
 
 		}
 	} else {
@@ -143,6 +149,23 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
+	case "amountofpayment":
+		if err := h.storage.Cache.Delete(data); err != nil {
+			logger.Error("error delete cache", slog.String("error", err.Error()))
+		}
+		numb := msg.Text
+		LastCount, err := h.storage.Count.GetLast(numb)
+		if err != nil {
+			logger.Error("error get last count", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		}
+		PenultCount, err := h.storage.Count.GetPenult(numb)
+		if err != nil {
+			logger.Error("error get penult count", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 
+		}
+		amount := (LastCount - PenultCount) * core.PriceOfElectricity
+		core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показания счетчика %v к оплате %v", LastCount, amount), bot)
 	}
 }

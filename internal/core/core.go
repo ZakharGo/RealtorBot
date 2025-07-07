@@ -13,7 +13,9 @@ const (
 	RepeatingMeaning          = "Это значение уже существует"
 	NewCountAnswerCallback    = "Введите номер квартиры и показание счетчика. Пример ввода: 1A 123456"
 	ErrorInputData            = "Неверный тип ввода данных"
+	NewGetAmountOfPayment     = "Введите номер квартиры. Пример ввода: 1А"
 )
+const PriceOfElectricity = 5
 
 type Message struct {
 	Text            string

@@ -5,7 +5,7 @@ CREATE TABLE flats(
 );
 CREATE TABLE records(
     id serial not null unique,
-    date date,
+    date TIMESTAMP,
     count INT
 );
 CREATE TABLE flat_records(

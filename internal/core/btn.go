@@ -15,6 +15,8 @@ func NewStartInlineBtn(ChatId int64, bot *tgbotapi.BotAPI) error {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("NewCount", "newcount")),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Amount of Payment", "amountofpayment")),
 	)
 	msg := tgbotapi.NewMessage(ChatId, "Нажми на кнопку:")
 	msg.ReplyMarkup = keyboard
