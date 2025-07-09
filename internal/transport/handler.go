@@ -69,6 +69,10 @@ func (h *Handler) mainHandler(msg core.Message, bot *tgbotapi.BotAPI, logger *sl
 					core.SendMessageTg(msg.CallbackChatID, flats[i], bot)
 				}
 			}
+			if err := core.NewStartInlineBtn(msg.CallbackChatID, bot); err != nil {
+				logger.Error("error send inline Button", slog.String("error", err.Error()))
+				core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+			}
 		case "newcount":
 			if err := h.storage.Cache.Create(msg.CallbackData); err != nil {
 				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
@@ -119,6 +123,10 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
+		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
+			logger.Error("error send inline Button", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		}
 
 	case "newcount":
 		if err := h.storage.Cache.Delete(data); err != nil {
@@ -149,6 +157,10 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
+		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
+			logger.Error("error send inline Button", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		}
 	case "amountofpayment":
 		if err := h.storage.Cache.Delete(data); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
@@ -167,5 +179,10 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		}
 		amount := (LastCount - PenultCount) * core.PriceOfElectricity
 		core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показания счетчика %v к оплате %v", LastCount, amount), bot)
+		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
+			logger.Error("error send inline Button", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		}
 	}
+
 }
