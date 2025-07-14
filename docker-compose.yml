@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: realtor-bot-compose
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-compose
+    environment:
+      - POSTGRES_USER=postgres  # Стандартный пользователь
+      - POSTGRES_PASSWORD=12345678 # Стандартный пароль
+      - POSTGRES_DB=postgres # Стандартное имя БД
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-compose
+    environment:
+      - REDIS_PASSWORD=12345678
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+volumes:
+  postgres_data:
+  redis_data:
+  
+networks:
+  app-network:
+    driver: bridge

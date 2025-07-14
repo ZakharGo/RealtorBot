@@ -1,38 +1,42 @@
 package entities
 
 import (
+	"context"
 	"fmt"
-	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
+	"time"
 )
 
-type CachePostgres struct {
-	Cache *sqlx.DB
+type CacheRedis struct {
+	Cache *redis.Client
 }
 
-func NewCachePostgres(cache *sqlx.DB) *CachePostgres {
-	return &CachePostgres{Cache: cache}
+func NewCacheRedis(cache *redis.Client) *CacheRedis {
+	return &CacheRedis{Cache: cache}
 }
-func (c *CachePostgres) Get() (string, error) {
-	query := fmt.Sprintf("SELECT script FROM scripts")
-	var script string
-	if err := c.Cache.Get(&script, query); err != nil {
-		return "", err
-	}
-	return script, nil
-}
-func (c *CachePostgres) Create(data string) error {
-	query := fmt.Sprintf("INSERT INTO scripts (script) values ($1)")
-	_, err := c.Cache.Exec(query, data)
+
+func (c *CacheRedis) Create(ctx context.Context, data string, userID string) error {
+	err := c.Cache.Set(ctx, userID, data, 30*time.Second).Err()
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (c *CachePostgres) Delete(data string) error {
-	query := fmt.Sprintf("DELETE FROM scripts where script = $1")
-	_, err := c.Cache.Exec(query, data)
+
+func (c *CacheRedis) Get(ctx context.Context, userID string) (string, error) {
+	val, err := c.Cache.Get(ctx, userID).Result()
+	if err == redis.Nil {
+		return "", fmt.Errorf("key %s does not exist", userID)
+	} else if err != nil {
+		return "", fmt.Errorf("error getting item: %v", err)
+	}
+	return val, nil
+}
+
+func (c *CacheRedis) Delete(ctx context.Context, userID string) error {
+	_, err := c.Cache.Del(ctx, userID).Result()
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting item: %v", err)
 	}
 	return nil
 }

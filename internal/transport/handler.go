@@ -1,13 +1,17 @@
 package transport
 
 import (
+	"context"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log/slog"
+	"os"
+	"os/signal"
 	"realtorBot/internal/core"
 	"realtorBot/internal/storage"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -21,10 +25,12 @@ func NewHandler(storage *storage.Storage) *Handler {
 }
 
 func (h *Handler) InitHandler(tgUpdate tgbotapi.Update, bot *tgbotapi.BotAPI, logger *slog.Logger) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	if tgUpdate.Message != nil {
-		logger.Info("GetMessage:", tgUpdate.Message.Text, "From", tgUpdate.Message.From.UserName)
+		logger.Info(fmt.Sprintf("[%s][%v] Message: %s", tgUpdate.Message.From.UserName, tgUpdate.Message.From.ID, tgUpdate.Message.Text))
 		message := tgUpdate.Message
-		h.mainHandler(core.Message{
+		h.mainHandler(ctx, core.Message{
 			Text:            message.Text,
 			UserID:          message.From.ID,
 			UserName:        message.From.UserName,
@@ -35,7 +41,7 @@ func (h *Handler) InitHandler(tgUpdate tgbotapi.Update, bot *tgbotapi.BotAPI, lo
 	} else if tgUpdate.CallbackQuery != nil {
 		callback := tgUpdate.CallbackQuery
 		logger.Info(fmt.Sprintf("[%s][%v] Callback: %s", tgUpdate.CallbackQuery.From.UserName, tgUpdate.CallbackQuery.From.ID, tgUpdate.CallbackQuery.Data))
-		h.mainHandler(core.Message{
+		h.mainHandler(ctx, core.Message{
 			UserID:          callback.From.ID,
 			UserName:        callback.From.UserName,
 			UserDisplayName: fmt.Sprint(callback.From.FirstName + " " + callback.From.LastName),
@@ -49,11 +55,16 @@ func (h *Handler) InitHandler(tgUpdate tgbotapi.Update, bot *tgbotapi.BotAPI, lo
 }
 
 // todo var
-func (h *Handler) mainHandler(msg core.Message, bot *tgbotapi.BotAPI, logger *slog.Logger) {
+func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbotapi.BotAPI, logger *slog.Logger) {
+	//init Context
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	data := msg.CallbackData
+	userID := fmt.Sprint(msg.UserID)
 	if msg.IsCallback == true {
-		switch msg.CallbackData {
+		switch data {
 		case "newflat":
-			if err := h.storage.Cache.Create(msg.CallbackData); err != nil {
+			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
 				logger.Error("error:", slog.String("error in flat callbackQuery", err.Error()))
 				core.SendMessageTg(msg.CallbackChatID, core.ErrorAnswer, bot)
 			} else {
@@ -74,13 +85,13 @@ func (h *Handler) mainHandler(msg core.Message, bot *tgbotapi.BotAPI, logger *sl
 				core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 			}
 		case "newcount":
-			if err := h.storage.Cache.Create(msg.CallbackData); err != nil {
+			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
 				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
 			} else {
 				core.SendMessageTg(msg.CallbackChatID, core.NewCountAnswerCallback, bot)
 			}
 		case "amountofpayment":
-			if err := h.storage.Cache.Create(msg.CallbackData); err != nil {
+			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
 				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
 			} else {
 				core.SendMessageTg(msg.CallbackChatID, core.NewGetAmountOfPayment, bot)
@@ -96,24 +107,23 @@ func (h *Handler) mainHandler(msg core.Message, bot *tgbotapi.BotAPI, logger *sl
 				core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 			}
 		default:
-			if err := h.storage.Delete(""); err != nil {
-				logger.Error("error delete cache", slog.String("error", err.Error()))
-			}
-			data, err := h.storage.Cache.Get()
+
+			data, err := h.storage.Cache.Get(ctx, userID)
 			if err != nil {
 				logger.Error("error get cache", slog.String("error", err.Error()))
 				core.SendMessageTg(msg.MessageChatID, core.NotFoundCommand, bot)
 			} else {
-				h.HandleInputData(msg, bot, data, logger)
+				h.HandleInputData(ctx, msg, bot, data, logger)
 			}
 		}
 	}
 }
 
-func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data string, logger *slog.Logger) {
+func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tgbotapi.BotAPI, data string, logger *slog.Logger) {
+	userID := fmt.Sprint(msg.UserID)
 	switch data {
 	case "newflat":
-		if err := h.storage.Cache.Delete(data); err != nil {
+		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
 		err := h.storage.Flat.Create(msg.Text)
@@ -129,13 +139,13 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		}
 
 	case "newcount":
-		if err := h.storage.Cache.Delete(data); err != nil {
+		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
 		txt := strings.Split(msg.Text, " ")
 		if len(txt) != 2 {
 			core.SendMessageTg(msg.MessageChatID, core.ErrorInputData, bot)
-			if err := h.storage.Cache.Delete("newflat"); err != nil {
+			if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 				logger.Error("error delete cache", slog.String("error", err.Error()))
 			}
 			break
@@ -144,7 +154,7 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		count, err := strconv.Atoi(txt[1])
 		if err != nil {
 			core.SendMessageTg(msg.MessageChatID, core.ErrorInputData, bot)
-			if err := h.storage.Cache.Delete(data); err != nil {
+			if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 				logger.Error("error delete cache", slog.String("error", err.Error()))
 			}
 			break
@@ -162,7 +172,7 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 		}
 	case "amountofpayment":
-		if err := h.storage.Cache.Delete(data); err != nil {
+		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
 		numb := msg.Text
@@ -175,10 +185,11 @@ func (h *Handler) HandleInputData(msg core.Message, bot *tgbotapi.BotAPI, data s
 		if err != nil {
 			logger.Error("error get penult count", slog.String("error", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
-
 		}
 		amount := (LastCount - PenultCount) * core.PriceOfElectricity
-		core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показания счетчика %v к оплате %v", LastCount, amount), bot)
+		if amount > 0 {
+			core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показаниe счетчика %v к оплате %v рублей", LastCount, amount), bot)
+		}
 		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
 			logger.Error("error send inline Button", slog.String("error", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)

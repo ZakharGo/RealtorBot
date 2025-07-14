@@ -1,6 +1,10 @@
-db:
+pdb:
   username: "postgres"
   host: "localhost"
   port: "5435"
   dbname: "postgres"
   sslmode: "disable"
+rdb:
+  host: "redis-compose:6379"
+  password: "12345678"
+  db: 0

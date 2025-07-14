@@ -3,6 +3,7 @@ package main
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"log"
 	"log/slog"
@@ -13,8 +14,10 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
+	//init logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	//init config
 	err := config.InitConfig()
 	if err != nil {
 		logger.Error("error set config file", slog.String("error", err.Error()))
@@ -24,19 +27,31 @@ func main() {
 		logger.Error("error set env", slog.String("error", err.Error()))
 	}
 
-	//New db with config data viper.GetString
-	db, err := storage.NewPostgresDB(storage.Config{
-		Host:     viper.GetString("db.host"),
-		Port:     viper.GetString("db.port"),
-		UserName: viper.GetString("db.username"),
-		DBName:   viper.GetString("db.dbname"),
+	//New pdb with config data viper.GetString
+	pdb, err := storage.NewPostgresDB(storage.Config{
+		Host:     viper.GetString("pdb.host"),
+		Port:     viper.GetString("pdb.port"),
+		UserName: viper.GetString("pdb.username"),
+		DBName:   viper.GetString("pdb.dbname"),
 		Password: os.Getenv("passwordDB"),
-		SSLMode:  viper.GetString("db.sslmode"),
+		SSLMode:  viper.GetString("pdb.sslmode"),
 	})
 	if err != nil {
-		logger.Error("error init storage", slog.String("error", err.Error()))
+		logger.Error("error init Postgres storage", slog.String("error", err.Error()))
+	} else {
+		logger.Info("Postgres storage initialized")
 	}
-	storage := storage.NewStorage(db)
+	rdb, pong, err := storage.NewRedisStorage(&redis.Options{
+		Addr:     viper.GetString("rdb.host"),
+		Password: viper.GetString("rdb.password"),
+		DB:       viper.GetInt("rdb.db"),
+	})
+	if err != nil {
+		logger.Error("error init Redis storage", slog.String("error", err.Error()))
+	}
+	logger.Info("Redis storage initialized", slog.String("Ping", pong))
+
+	storage := storage.NewStorage(pdb, rdb)
 	handler := transport.NewHandler(storage)
 
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TG_BOT_TOKEN"))

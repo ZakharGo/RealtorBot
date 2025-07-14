@@ -1,15 +1,17 @@
 package storage
 
 import (
+	"context"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 	"realtorBot/internal/storage/entities"
 	"time"
 )
 
 type Cache interface {
-	Create(data string) error
-	Get() (string, error)
-	Delete(data string) error
+	Create(ctx context.Context, data string, userID string) error
+	Get(ctx context.Context, userID string) (string, error)
+	Delete(ctx context.Context, userID string) error
 }
 type Flat interface {
 	Create(numb string) error
@@ -27,10 +29,10 @@ type Storage struct {
 	Count
 }
 
-func NewStorage(db *sqlx.DB) *Storage {
+func NewStorage(pdb *sqlx.DB, rdb *redis.Client) *Storage {
 	return &Storage{
-		Cache: entities.NewCachePostgres(db),
-		Flat:  entities.NewFlatPostgres(db),
-		Count: entities.NewCountPostgres(db),
+		Cache: entities.NewCacheRedis(rdb),
+		Flat:  entities.NewFlatPostgres(pdb),
+		Count: entities.NewCountPostgres(pdb),
 	}
 }
