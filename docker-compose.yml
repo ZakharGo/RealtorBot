@@ -4,18 +4,30 @@ services:
   app:
     build: .
     container_name: realtor-bot-compose
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - app-network
 
   postgres:
     image: postgres:15-alpine
+    env_file: .env
     container_name: postgres-compose
     environment:
-      - POSTGRES_USER=postgres  # Стандартный пользователь
-      - POSTGRES_PASSWORD=12345678 # Стандартный пароль
-      - POSTGRES_DB=postgres # Стандартное имя БД
+        - POSTGRES_DB=${POSTGRES_DB}
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./schema:/schema
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - "5432:5432"
     networks:
@@ -24,8 +36,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-compose
+    env_file: .env
     environment:
-      - REDIS_PASSWORD=12345678
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
     ports:
       - "6379:6379"
     volumes:

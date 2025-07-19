@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/realtorBot.iml" filepath="$PROJECT_DIR$/.idea/realtorBot.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../project tg-bot-game/tg-bot-game/.idea/tg-bot-game.iml" filepath="$PROJECT_DIR$/../project tg-bot-game/tg-bot-game/.idea/tg-bot-game.iml" />
     </modules>
   </component>
 </project>

@@ -15,6 +15,7 @@ type Cache interface {
 }
 type Flat interface {
 	Create(numb string) error
+	Delete(numb string) error
 	GetAll() ([]string, error)
 }
 type Count interface {
@@ -22,6 +23,7 @@ type Count interface {
 	GetAll() ([]int, error)
 	GetLast(numb string) (int, error)
 	GetPenult(numb string) (int, error)
+	DeleteLastCount() (string, int, error)
 }
 type Storage struct {
 	Cache

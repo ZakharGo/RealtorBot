@@ -60,3 +60,39 @@ func (c *CountPostgres) GetPenult(numb string) (int, error) {
 	}
 	return count, nil
 }
+
+func (c *CountPostgres) DeleteLastCount() (string, int, error) {
+	tx, err := c.Count.Beginx()
+	if err != nil {
+		return "", 0, fmt.Errorf("error creating transaction: %v", err)
+	}
+	querySelectCountId := fmt.Sprint("Select id, count from records where date=(select max(date) from records)")
+	row := tx.QueryRow(querySelectCountId)
+	var countId int64
+	var count int
+	if err := row.Scan(&countId, &count); err != nil {
+		tx.Rollback()
+		return "", 0, fmt.Errorf("error scan received countId: %v", err)
+	}
+
+	querySelectFlat := fmt.Sprintf("SELECT flat FROM flats as f INNER JOIN flat_records as fr ON f.id =fr.flat_id WHERE fr.record_id=$1")
+	row = tx.QueryRow(querySelectFlat, countId)
+	if row.Err() != nil {
+		tx.Rollback()
+		return "", 0, fmt.Errorf("error getting flat deleted count: %v", row.Err())
+	}
+	var flat string
+	if err := row.Scan(&flat); err != nil {
+		tx.Rollback()
+		return "", 0, fmt.Errorf("error scan flat: %v", err)
+	}
+
+	queryDeleteRecord := fmt.Sprint("DELETE from records where date=(select max(date) from records) RETURNING id")
+	if _, err := tx.Exec(queryDeleteRecord); err != nil {
+		tx.Rollback()
+		return "", 0, fmt.Errorf("error deleting last count: %v", err)
+	}
+
+	tx.Commit()
+	return flat, count, nil
+}

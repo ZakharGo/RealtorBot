@@ -59,62 +59,67 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 	//init Context
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	data := msg.CallbackData
+	data := msg.Text
 	userID := fmt.Sprint(msg.UserID)
-	if msg.IsCallback == true {
-		switch data {
-		case "newflat":
-			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
-				logger.Error("error:", slog.String("error in flat callbackQuery", err.Error()))
-				core.SendMessageTg(msg.CallbackChatID, core.ErrorAnswer, bot)
-			} else {
-				core.SendMessageTg(msg.CallbackChatID, core.NewFlatAnswerCallback, bot)
-			}
-		case "getallflat":
-			flats, err := h.storage.Flat.GetAll()
-			if err != nil {
-				logger.Error("error:", slog.String("error in get all Flats", err.Error()))
-				core.SendMessageTg(msg.CallbackChatID, core.ErrorAnswer, bot)
-			} else {
-				for i := 0; i < len(flats); i++ {
-					core.SendMessageTg(msg.CallbackChatID, flats[i], bot)
-				}
-			}
-			if err := core.NewStartInlineBtn(msg.CallbackChatID, bot); err != nil {
-				logger.Error("error send inline Button", slog.String("error", err.Error()))
-				core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
-			}
-		case "newcount":
-			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
-				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
-			} else {
-				core.SendMessageTg(msg.CallbackChatID, core.NewCountAnswerCallback, bot)
-			}
-		case "amountofpayment":
-			if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
-				logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
-			} else {
-				core.SendMessageTg(msg.CallbackChatID, core.NewGetAmountOfPayment, bot)
-			}
 
+	switch msg.Text {
+	case "NewFlat":
+		if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
+			logger.Error("error:", slog.String("error in flat callbackQuery", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.NumberFlatAnswerCallback, bot)
 		}
-	} else {
-		switch msg.Text {
-		//todo command /start try
-		case "/start":
-			if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
-				logger.Error("error send inline Button", slog.String("error", err.Error()))
-				core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+	case "DeleteFlat":
+		if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
+			logger.Error("error:", slog.String("error in flat callbackQuery", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.NumberFlatAnswerCallback, bot)
+		}
+	case "GetAllFlat":
+		flats, err := h.storage.Flat.GetAll()
+		if err != nil {
+			logger.Error("error:", slog.String("error in get all Flats", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		} else {
+			for i := 0; i < len(flats); i++ {
+				core.SendMessageTg(msg.MessageChatID, flats[i], bot)
 			}
-		default:
+		}
+	case "NewCount":
+		if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
+			logger.Error("error:", slog.String("error in new count callbackQuery", err.Error()))
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.NewCountAnswerCallback, bot)
+		}
+	case "DeleteLastCount":
+		flat, count, err := h.storage.Count.DeleteLastCount()
+		if err != nil {
+			logger.Error("error:", slog.String("error in delete last count callbackQuery", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		} else {
+			core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Запись %v квартиры %s удалена", count, flat), bot)
+		}
+	case "Amount of payment":
+		if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
+			logger.Error("error:", slog.String("error in Amount of payment callbackQuery", err.Error()))
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.NewGetAmountOfPayment, bot)
+		}
+	case "/start":
+		if err := core.Mainkeyboard(msg.MessageChatID, bot); err != nil {
+			logger.Error("error send inline Button", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+		}
+	default:
 
-			data, err := h.storage.Cache.Get(ctx, userID)
-			if err != nil {
-				logger.Error("error get cache", slog.String("error", err.Error()))
-				core.SendMessageTg(msg.MessageChatID, core.NotFoundCommand, bot)
-			} else {
-				h.HandleInputData(ctx, msg, bot, data, logger)
-			}
+		data, err := h.storage.Cache.Get(ctx, userID)
+		if err != nil {
+			logger.Error("error get cache", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.NotFoundCommand, bot)
+		} else {
+			h.HandleInputData(ctx, msg, bot, data, logger)
 		}
 	}
 }
@@ -122,7 +127,7 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tgbotapi.BotAPI, data string, logger *slog.Logger) {
 	userID := fmt.Sprint(msg.UserID)
 	switch data {
-	case "newflat":
+	case "NewFlat":
 		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
@@ -133,12 +138,19 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
-		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
-			logger.Error("error send inline Button", slog.String("error", err.Error()))
-			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+
+	case "DeleteFlat":
+		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
+			logger.Error("error delete cache", slog.String("error", err.Error()))
+		}
+		if err := h.storage.Flat.Delete(msg.Text); err != nil {
+			logger.Error("error delete flat", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.FlatNotFound, bot)
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
 
-	case "newcount":
+	case "NewCount":
 		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
@@ -167,11 +179,7 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
-		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
-			logger.Error("error send inline Button", slog.String("error", err.Error()))
-			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
-		}
-	case "amountofpayment":
+	case "Amount of payment":
 		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
 			logger.Error("error delete cache", slog.String("error", err.Error()))
 		}
@@ -186,14 +194,11 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 			logger.Error("error get penult count", slog.String("error", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 		}
-		amount := (LastCount - PenultCount) * core.PriceOfElectricity
-		if amount > 0 {
+		amount := float64(LastCount-PenultCount) * core.PriceOfElectricity
+		if amount > 0.0 {
 			core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показаниe счетчика %v к оплате %v рублей", LastCount, amount), bot)
 		}
-		if err := core.NewStartInlineBtn(msg.MessageChatID, bot); err != nil {
-			logger.Error("error send inline Button", slog.String("error", err.Error()))
-			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
-		}
+
 	}
 
 }

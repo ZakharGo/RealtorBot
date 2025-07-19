@@ -4,7 +4,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 	"log"
 	"log/slog"
 	"os"
@@ -18,23 +17,21 @@ func main() {
 	//init logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	//init config
-	err := config.InitConfig()
-	if err != nil {
-		logger.Error("error set config file", slog.String("error", err.Error()))
-	}
-	err = config.InitEnv()
+	//err := config.InitConfig()
+	//if err != nil {
+	//	logger.Error("error set config file", slog.String("error", err.Error()))
+	//}
+	err := config.InitEnv()
 	if err != nil {
 		logger.Error("error set env", slog.String("error", err.Error()))
 	}
 
 	//New pdb with config data viper.GetString
 	pdb, err := storage.NewPostgresDB(storage.Config{
-		Host:     viper.GetString("pdb.host"),
-		Port:     viper.GetString("pdb.port"),
-		UserName: viper.GetString("pdb.username"),
-		DBName:   viper.GetString("pdb.dbname"),
-		Password: os.Getenv("passwordDB"),
-		SSLMode:  viper.GetString("pdb.sslmode"),
+		UserName: os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		DBName:   os.Getenv("POSTGRES_DB"),
+		SSLMode:  os.Getenv("POSTGRES_SSL_MODE"),
 	})
 	if err != nil {
 		logger.Error("error init Postgres storage", slog.String("error", err.Error()))
@@ -42,15 +39,14 @@ func main() {
 		logger.Info("Postgres storage initialized")
 	}
 	rdb, pong, err := storage.NewRedisStorage(&redis.Options{
-		Addr:     viper.GetString("rdb.host"),
-		Password: viper.GetString("rdb.password"),
-		DB:       viper.GetInt("rdb.db"),
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
 	})
 	if err != nil {
 		logger.Error("error init Redis storage", slog.String("error", err.Error()))
+	} else {
+		logger.Info("Redis storage initialized", slog.String("Ping", pong))
 	}
-	logger.Info("Redis storage initialized", slog.String("Ping", pong))
-
 	storage := storage.NewStorage(pdb, rdb)
 	handler := transport.NewHandler(storage)
 

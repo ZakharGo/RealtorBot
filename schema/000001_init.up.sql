@@ -14,8 +14,5 @@ CREATE TABLE flat_records(
     record_id int references records(id) on delete cascade not null
 );
 
-CREATE TABLE scripts(
-    script varchar(255) not null
-)
 
 

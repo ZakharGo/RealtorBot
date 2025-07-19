@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	redisKeyTTL = 1 * time.Minute
+)
+
 type CacheRedis struct {
 	Cache *redis.Client
 }
@@ -16,7 +20,7 @@ func NewCacheRedis(cache *redis.Client) *CacheRedis {
 }
 
 func (c *CacheRedis) Create(ctx context.Context, data string, userID string) error {
-	err := c.Cache.Set(ctx, userID, data, 30*time.Second).Err()
+	err := c.Cache.Set(ctx, userID, data, redisKeyTTL).Err()
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package entities
 import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 )
 
 type FlatPostgres struct {
@@ -18,6 +19,19 @@ func (f *FlatPostgres) Create(numb string) error {
 	_, err := f.Flat.Exec(query, numb)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (f *FlatPostgres) Delete(numb string) error {
+	query := "DELETE FROM flats WHERE flat = $1"
+	res, err := f.Flat.Exec(query, numb)
+	if err != nil {
+		return err
+	}
+	k, err := res.RowsAffected()
+	if k == 0 {
+		return errors.New("Flat not found")
 	}
 	return nil
 }

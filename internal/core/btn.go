@@ -7,22 +7,44 @@ import (
 )
 
 // nolint
-func NewStartInlineBtn(ChatId int64, bot *tgbotapi.BotAPI) error {
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("NewFlat", "newflat"),
-			tgbotapi.NewInlineKeyboardButtonData("GetAllFlat", "getallflat"),
+func Mainkeyboard(ChatId int64, bot *tgbotapi.BotAPI) error {
+	keyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("NewFlat"),
+			tgbotapi.NewKeyboardButton("DeleteFlat"),
+			tgbotapi.NewKeyboardButton("GetAllFlat"),
 		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("NewCount", "newcount")),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Amount of Payment", "amountofpayment")),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("NewCount"),
+			tgbotapi.NewKeyboardButton("DeleteLastCount"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Amount of payment"),
+		),
 	)
-	msg := tgbotapi.NewMessage(ChatId, "Нажми на кнопку:")
+	msg := tgbotapi.NewMessage(ChatId, "Выберите действие:")
 	msg.ReplyMarkup = keyboard
 	_, err := bot.Send(msg)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func AllflatBtn(flats []string, ChatId int64, bot *tgbotapi.BotAPI) error {
+	for _, flat := range flats {
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData(flat, flat),
+			),
+		)
+		msg := tgbotapi.NewMessage(ChatId, "")
+		msg.ReplyMarkup = keyboard
+		_, err := bot.Send(msg)
+		if err != nil {
+			return err
+			break
+		}
 	}
 	return nil
 }
