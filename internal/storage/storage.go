@@ -11,7 +11,6 @@ import (
 type Cache interface {
 	Create(ctx context.Context, data string, userID string) error
 	Get(ctx context.Context, userID string) (string, error)
-	Delete(ctx context.Context, userID string) error
 }
 type Flat interface {
 	Create(numb string) error

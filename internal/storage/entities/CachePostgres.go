@@ -28,7 +28,7 @@ func (c *CacheRedis) Create(ctx context.Context, data string, userID string) err
 }
 
 func (c *CacheRedis) Get(ctx context.Context, userID string) (string, error) {
-	val, err := c.Cache.Get(ctx, userID).Result()
+	val, err := c.Cache.GetDel(ctx, userID).Result()
 	if err == redis.Nil {
 		return "", fmt.Errorf("key %s does not exist", userID)
 	} else if err != nil {
@@ -37,10 +37,11 @@ func (c *CacheRedis) Get(ctx context.Context, userID string) (string, error) {
 	return val, nil
 }
 
-func (c *CacheRedis) Delete(ctx context.Context, userID string) error {
-	_, err := c.Cache.Del(ctx, userID).Result()
-	if err != nil {
-		return fmt.Errorf("error deleting item: %v", err)
-	}
-	return nil
-}
+//
+//func (c *CacheRedis) Delete(ctx context.Context, userID string) error {
+//	_, err := c.Cache.Del(ctx, userID).Result()
+//	if err != nil {
+//		return fmt.Errorf("error deleting item: %v", err)
+//	}
+//	return nil
+//}

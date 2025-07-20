@@ -16,6 +16,7 @@ func Mainkeyboard(ChatId int64, bot *tgbotapi.BotAPI) error {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("NewCount"),
+			tgbotapi.NewKeyboardButton("GetLastCount"),
 			tgbotapi.NewKeyboardButton("DeleteLastCount"),
 		),
 		tgbotapi.NewKeyboardButtonRow(

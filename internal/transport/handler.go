@@ -93,6 +93,13 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.NewCountAnswerCallback, bot)
 		}
+	case "GetLastCount":
+		if err := h.storage.Cache.Create(ctx, data, userID); err != nil {
+			logger.Error("error:", slog.String("error in get last count callbackQuery", err.Error()))
+		} else {
+			core.SendMessageTg(msg.MessageChatID, core.NewGetAmountOfPayment, bot)
+		}
+
 	case "DeleteLastCount":
 		flat, count, err := h.storage.Count.DeleteLastCount()
 		if err != nil {
@@ -125,12 +132,9 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 }
 
 func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tgbotapi.BotAPI, data string, logger *slog.Logger) {
-	userID := fmt.Sprint(msg.UserID)
 	switch data {
 	case "NewFlat":
-		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-			logger.Error("error delete cache", slog.String("error", err.Error()))
-		}
+
 		err := h.storage.Flat.Create(msg.Text)
 		if err != nil {
 			logger.Error("error create flat", slog.String("error", err.Error()))
@@ -140,9 +144,7 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 		}
 
 	case "DeleteFlat":
-		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-			logger.Error("error delete cache", slog.String("error", err.Error()))
-		}
+
 		if err := h.storage.Flat.Delete(msg.Text); err != nil {
 			logger.Error("error delete flat", slog.String("error", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.FlatNotFound, bot)
@@ -151,38 +153,36 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 		}
 
 	case "NewCount":
-		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-			logger.Error("error delete cache", slog.String("error", err.Error()))
-		}
+
 		txt := strings.Split(msg.Text, " ")
 		if len(txt) != 2 {
 			core.SendMessageTg(msg.MessageChatID, core.ErrorInputData, bot)
-			if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-				logger.Error("error delete cache", slog.String("error", err.Error()))
-			}
+
 			break
 		}
 		numb := txt[0]
 		count, err := strconv.Atoi(txt[1])
 		if err != nil {
 			core.SendMessageTg(msg.MessageChatID, core.ErrorInputData, bot)
-			if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-				logger.Error("error delete cache", slog.String("error", err.Error()))
-			}
 			break
 		}
 		date := time.Now()
 		err = h.storage.Count.Create(numb, count, date)
 		if err != nil {
 			logger.Error("error create count", slog.String("error", err.Error()))
-			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
+			core.SendMessageTg(msg.MessageChatID, core.FlatNotFound, bot)
 		} else {
 			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
 		}
-	case "Amount of payment":
-		if err := h.storage.Cache.Delete(ctx, userID); err != nil {
-			logger.Error("error delete cache", slog.String("error", err.Error()))
+	case "GetLastCount":
+		count, err := h.storage.Count.GetLast(msg.Text)
+		if err != nil {
+			logger.Error("error get last count", slog.String("error", err.Error()))
+			core.SendMessageTg(msg.MessageChatID, core.FlatNotFound, bot)
+		} else {
+			core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Последня запись квартиры %s = %v", msg.Text, count), bot)
 		}
+	case "Amount of payment":
 		numb := msg.Text
 		LastCount, err := h.storage.Count.GetLast(numb)
 		if err != nil {
