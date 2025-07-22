@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"time"
 )
 
 type FlatPostgres struct {
@@ -36,11 +37,34 @@ func (f *FlatPostgres) Delete(numb string) error {
 	return nil
 }
 
-func (f *FlatPostgres) GetAll() ([]string, error) {
-	query := fmt.Sprintf("SELECT flat FROM flats")
-	var numbers []string
-	if err := f.Flat.Select(&numbers, query); err != nil {
-		return nil, err
+func (f *FlatPostgres) GetAll() ([]string, []time.Time, error) {
+	tx, err := f.Flat.Beginx()
+	if err != nil {
+		return nil, nil, err
 	}
-	return numbers, nil
+	querySelectAllFlat := fmt.Sprintf("SELECT id, flat FROM flats")
+	var numbers []string
+	var flatIds []int64
+	row := tx.QueryRow(querySelectAllFlat)
+	if row.Err() != nil {
+		tx.Rollback()
+		return nil, nil, row.Err()
+	}
+	if err := row.Scan(&flatIds, &numbers); err != nil {
+		tx.Rollback()
+		return nil, nil, row.Err()
+	}
+	var dates []time.Time
+	querySelectDate := fmt.Sprintf("SELECT r.date FROM records as r INNER JOIN flat_records as fr ON fr.record_id = r.id WHERE fr.flat_id = $1 ")
+	for _, flatId := range flatIds {
+		var date time.Time
+		if err := tx.Select(&date, querySelectDate, flatId); err != nil {
+			tx.Rollback()
+			return nil, nil, err
+			break
+		}
+		dates = append(dates, date)
+	}
+	tx.Commit()
+	return numbers, dates, nil
 }

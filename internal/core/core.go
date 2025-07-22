@@ -15,6 +15,7 @@ const (
 	ErrorInputData            = "Неверный тип ввода данных"
 	NewGetAmountOfPayment     = "Введите номер квартиры. Пример ввода: 1А"
 	FlatNotFound              = "Квартира не найдена"
+	WrongFlatFormat           = "Неверный формат квартиры"
 )
 const PriceOfElectricity = 3.48
 

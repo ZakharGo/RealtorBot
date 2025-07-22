@@ -15,7 +15,7 @@ type Cache interface {
 type Flat interface {
 	Create(numb string) error
 	Delete(numb string) error
-	GetAll() ([]string, error)
+	GetAll() ([]string, []time.Time, error)
 }
 type Count interface {
 	Create(numb string, count int, date time.Time) error

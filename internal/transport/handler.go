@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+const (
+	maxFlatLen = 3
+)
+
 // todo const
 type Handler struct {
 	storage *storage.Storage
@@ -78,13 +82,16 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 			core.SendMessageTg(msg.MessageChatID, core.NumberFlatAnswerCallback, bot)
 		}
 	case "GetAllFlat":
-		flats, err := h.storage.Flat.GetAll()
+		flats, dates, err := h.storage.Flat.GetAll()
 		if err != nil {
 			logger.Error("error:", slog.String("error in get all Flats", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 		} else {
 			for i := 0; i < len(flats); i++ {
-				core.SendMessageTg(msg.MessageChatID, flats[i], bot)
+				date := dates[i].Format("2006-01-02")
+				flat := flats[i]
+				core.SendMessageTg(msg.MessageChatID, flat+" "+date, bot)
+				logger.Info(fmt.Sprintf("%s", flat))
 			}
 		}
 	case "NewCount":
@@ -134,13 +141,17 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tgbotapi.BotAPI, data string, logger *slog.Logger) {
 	switch data {
 	case "NewFlat":
-
-		err := h.storage.Flat.Create(msg.Text)
-		if err != nil {
-			logger.Error("error create flat", slog.String("error", err.Error()))
-			core.SendMessageTg(msg.MessageChatID, core.RepeatingMeaning, bot)
+		msg.Text = strings.ReplaceAll(msg.Text, " ", "")
+		if len(msg.Text) <= 4 {
+			err := h.storage.Flat.Create(msg.Text)
+			if err != nil {
+				logger.Error("error create flat", slog.String("error", err.Error()))
+				core.SendMessageTg(msg.MessageChatID, core.RepeatingMeaning, bot)
+			} else {
+				core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
+			}
 		} else {
-			core.SendMessageTg(msg.MessageChatID, core.TaskCompletedSuccessfully, bot)
+			core.SendMessageTg(msg.MessageChatID, core.WrongFlatFormat, bot)
 		}
 
 	case "DeleteFlat":
@@ -193,10 +204,11 @@ func (h *Handler) HandleInputData(ctx context.Context, msg core.Message, bot *tg
 		if err != nil {
 			logger.Error("error get penult count", slog.String("error", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
-		}
-		amount := float64(LastCount-PenultCount) * core.PriceOfElectricity
-		if amount > 0.0 {
-			core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показаниe счетчика %v к оплате %v рублей", LastCount, amount), bot)
+		} else {
+			amount := float64(LastCount-PenultCount) * core.PriceOfElectricity
+			if amount > 0.0 {
+				core.SendMessageTg(msg.MessageChatID, fmt.Sprintf("Здравствуйте, показаниe счетчика %v к оплате %.2f рублей", LastCount, amount), bot)
+			}
 		}
 
 	}
