@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+func maxDateSlice(slice []time.Time) time.Time {
+	if len(slice) == 0 {
+		return time.Time{} // или panic("empty slice")
+	}
+	maxt := slice[0]
+	for _, val := range slice[1:] {
+		if val.After(maxt) {
+			maxt = val
+		}
+	}
+	return maxt
+}
+
 type CountPostgres struct {
 	Count *sqlx.DB
 }
@@ -44,21 +57,96 @@ func (c *CountPostgres) GetAll() ([]int, error) {
 }
 
 func (c *CountPostgres) GetLast(numb string) (int, error) {
-	query := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1) and r.date=(select date from records order by date desc limit 1);")
-	var count int
-	if err := c.Count.Get(&count, query, numb); err != nil {
+	queryCount := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1);")
+	var count []int
+	if err := c.Count.Select(&count, queryCount, numb); err != nil {
 		return 0, err
 	}
-	return count, nil
+
+	var bestMaxDate time.Time
+	var maxCount int
+	for _, count := range count {
+		var dates []time.Time
+		queryDate := fmt.Sprint("SELECT date from records where count = $1")
+		if err := c.Count.Select(&dates, queryDate, count); err != nil {
+			return 0, err
+		}
+		maxDate := maxDateSlice(dates)
+		if maxDate.After(bestMaxDate) {
+			bestMaxDate = maxDate
+			maxCount = count
+		}
+	}
+	return maxCount, nil
 }
 
+func removeElementMap(slice []map[int]time.Time, value time.Time) []map[int]time.Time {
+	for i, maps := range slice {
+		for _, date := range maps {
+			if date == value {
+				return append(slice[:i], slice[i+1:]...)
+			}
+		}
+	}
+	return slice // если элемент не найден
+}
+func maxDateFromMap(maps []map[int]time.Time) (time.Time, int) {
+	var maxDate time.Time
+	var maxCount int
+	for _, m := range maps {
+		for count, date := range m {
+			if date.After(maxDate) {
+				maxDate = date
+				maxCount = count
+			}
+		}
+	}
+	return maxDate, maxCount
+}
+func dateAndCountMap(dates []time.Time, count int) []map[int]time.Time {
+	sliceMaps := make([]map[int]time.Time, len(dates))
+	for _, date := range dates {
+		slice := map[int]time.Time{
+			count: date,
+		}
+		sliceMaps = append(sliceMaps, slice)
+	}
+	return sliceMaps
+}
+func maxMap(fullCountDateMap []map[int]time.Time) map[int]time.Time {
+	maxMap := make(map[int]time.Time)
+	maxdate := time.Time{}
+	for _, maps := range fullCountDateMap {
+		for _, date := range maps {
+			if date.After(maxdate) {
+				maxdate = date
+				maxMap = maps
+			}
+		}
+	}
+	return maxMap
+}
 func (c *CountPostgres) GetPenult(numb string) (int, error) {
-	query := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1) and r.date=(select date from records order by date desc limit 1 offset 1);")
-	var count int
-	if err := c.Count.Get(&count, query, numb); err != nil {
+	queryCount := fmt.Sprint("SELECT r.count from records as r inner join flat_records as fr on r.id = fr.record_id where fr.flat_id=(select id from flats where flat = $1);")
+	var count []int
+	if err := c.Count.Select(&count, queryCount, numb); err != nil {
 		return 0, err
 	}
-	return count, nil
+
+	fullCountDateMap := make([]map[int]time.Time, len(count))
+	for _, count := range count {
+		var dates []time.Time
+		queryDate := fmt.Sprint("SELECT date from records where count = $1")
+		if err := c.Count.Select(&dates, queryDate, count); err != nil {
+			return 0, err
+		}
+		sliceMaps := dateAndCountMap(dates, count)
+		fullCountDateMap = append(fullCountDateMap, sliceMaps...)
+	}
+	maxDate, _ := maxDateFromMap(fullCountDateMap)
+	fullCountDateMap = removeElementMap(fullCountDateMap, maxDate)
+	_, maxCount := maxDateFromMap(fullCountDateMap)
+	return maxCount, nil
 }
 
 func (c *CountPostgres) DeleteLastCount() (string, int, error) {

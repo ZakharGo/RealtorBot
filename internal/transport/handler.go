@@ -78,13 +78,13 @@ func (h *Handler) mainHandler(ctx context.Context, msg core.Message, bot *tgbota
 			core.SendMessageTg(msg.MessageChatID, core.NumberFlatAnswerCallback, bot)
 		}
 	case "GetAllFlat":
-		flats, err := h.storage.Flat.GetAll()
+		getAllString, err := h.storage.Flat.GetAll()
 		if err != nil {
 			logger.Error("error:", slog.String("error in get all Flats", err.Error()))
 			core.SendMessageTg(msg.MessageChatID, core.ErrorAnswer, bot)
 		} else {
-			for i := 0; i < len(flats); i++ {
-				core.SendMessageTg(msg.MessageChatID, flats[i], bot)
+			for _, v := range getAllString {
+				core.SendMessageTg(msg.MessageChatID, v, bot)
 			}
 		}
 	case "NewCount":
